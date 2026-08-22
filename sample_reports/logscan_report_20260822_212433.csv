@@ -1,0 +1,6 @@
+artefact,result,date
+8.8.8.8,zone=Green; status=known; country=US; categories=CATEGORY_NAT_GATEWAY[Grey]; hits=100000,2026-08-22T17:24:28.062732+00:00
+95.26.140.127,zone=Grey; status=known; country=RU,2026-08-22T17:24:28.670189+00:00
+182.93.7.194,zone=Grey; status=known; country=MO,2026-08-22T17:24:29.253795+00:00
+5d41402abc4b2a76b9719d911017c592,zone=Green; status=Clean; size=5; hits=10000,2026-08-22T17:24:32.357886+00:00
+a0c1413b6f18dedfaa711722c49e6dacc62d703a592c384e90c4f60af0fbd307,zone=Red; status=Malware; size=2163200; hits=1000,2026-08-22T17:24:33.795325+00:00
