@@ -30,10 +30,9 @@ ExecStart=/opt/logscan/bin/logscan --service
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
-PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
-ReadWritePaths=/opt/logscan/reports
+ReadWritePaths=/opt/logscan/reports /tmp/logscan/sample_logs
 
 [Install]
 WantedBy=multi-user.target
