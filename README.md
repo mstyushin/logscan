@@ -28,12 +28,17 @@ logscan supports two execution modes:
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) >= 0.12.5
 
 ## Quick Start using uv
+> tested on Debian 12/13
+
 ```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
 git clone https://github.com/mstyushin/logscan.git
 cd logscan
 uv sync
 cp .env-example .env
 vim .env # paste your OpenTIP token
+source .env
 uv run logscan --file sample_logs/sample.log
 cat /tmp/reports/*.csv
 ```
@@ -70,9 +75,15 @@ logscan --help
 There is no `setup.py` here, so the only option will be using traditional virtualenv (assuming your OS has virtualenv package installed):
 
 ```bash
+git clone https://github.com/mstyushin/logscan.git
+cd logscan
 virtualenv ./venv
 source ./venv/bin/activate
 pip install -r requirements.txt
+```
+
+Verify that logscan is installed and callable:
+```bash
 python src/logscan/__init__.py --help
 ```
 
@@ -86,7 +97,7 @@ python src/logscan/__init__.py --help
 
 ## Getting a TG-bot Token
 
-1. Find [this](@BotFather) guy in your TG client.
+1. Find [this](https://t.me/BotFather) guy in your TG client.
 2. Send him `/newbot` command.
 3. Choose username for your bot.
 4. Export the token he gave you as `TELEGRAM_TOKEN`.
@@ -130,10 +141,10 @@ logscan --file /path/to/access.log --api-key "your-token" --format json --report
 logscan --file /path/to/log.txt --api-key "your-token" --include-private-ips
 ```
 
-### Prompts for the file when `--file` is omitted
+### Prompts for the file path when `--file` is omitted
 
 ```bash
-logscan
+logscan --api-key "your-token"
 ```
 
 ### Help
@@ -161,53 +172,63 @@ The bot supports the following commands:
 | `/status`                | Show the current configuration (secrets are never shown).               |
 
 ## Example deployment with systemd
+> tested on Debian 12
+
+In this example `uv` tool is used, if you want to go with `pip` then copy the code somewhere under the `/opt/logscan` and fix `ExecStart` in service file.
+All commands below must be run as root.
 
 1. Create a service account:
 
    ```bash
-   sudo useradd --system --home /opt/logscan --shell /usr/sbin/nologin logscan
+   useradd --system --home /opt/logscan --shell /usr/sbin/nologin logscan
    ```
+2. Install `uv`:
 
-2. Create a virtualenv under `/opt/logscan`:
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+
+3. Build and install `logscan` in a virtualenv under `/opt/logscan`:
 
    ```bash
-   sudo mkdir -p /opt/logscan
-   sudo cp -r lib main.py requirements.txt /opt/logscan/
-   sudo python3 -m venv /opt/logscan/.venv
-   sudo /opt/logscan/.venv/bin/pip install -r /opt/logscan/requirements.txt
+   git clone https://github.com/mstyushin/logscan.git /tmp/logscan
+   cd /tmp/logscan && uv sync && uv build
+   uv venv --no-project --no-managed-python /opt/logscan
+   source /opt/logscan/bin/activate
+   uv pip install dist/logscan-$(uv version --short)-py3-none-any.whl
    ```
 
-3. Add configuration to `/etc/logscan/logscan.env` (mode `600` since we got secrets there):
+4. Add configuration to `/etc/logscan/logscan.env` (mode `600` since we got secrets there):
 
    ```bash
-   sudo mkdir -p /etc/logscan
-   sudo tee /etc/logscan/logscan.env >/dev/null <<'EOF'
+   mkdir -p /etc/logscan
+   cat > /etc/logscan/logscan.env <<EOF
    OPENTIP_API_KEY=your-opentip-api-token
    TELEGRAM_TOKEN=your-bot-token
    TELEGRAM_ALLOWED_CHATS=123456789
    LOGSCAN_REPORT_DIR=/opt/logscan/reports
    EOF
-   sudo chmod 600 /etc/logscan/logscan.env
-   sudo mkdir -p /opt/logscan/reports
-   sudo chown -R logscan:logscan /opt/logscan
+   chmod 600 /etc/logscan/logscan.env
+   mkdir -p /opt/logscan/reports
+   chown -R logscan:logscan /opt/logscan
    ```
 
-4. Install the unit file and start the service:
+5. Install the unit file and start the service:
 
    ```bash
-   sudo cp logscan.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now logscan.service
+   cp /tmp/logscan/logscan.service /etc/systemd/system/
+   systemctl daemon-reload
+   systemctl enable --now logscan.service
    ```
 
-5. Check status and logs:
+6. Check status and logs:
 
    ```bash
-   sudo systemctl status logscan.service
-   sudo journalctl -u logscan.service -f
+   systemctl status logscan.service
+   journalctl -u logscan.service -f
    ```
 
-> **Note:** The service account needs read access to any log files you ask it to analyze and write access to the report directory.
+> **Note:** The service account needs write access to the report directory. Also, make sure to add any directories with logs to a `ReadWritePaths` stanza in service file.
 
 ## Unit Tests
 ```bash
