@@ -25,6 +25,7 @@ class TestSettings:
         assert s.opentip_backoff_interval == 15
         assert s.opentip_max_retries == 5
         assert s.include_private_ips is False
+        assert s.use_mock is False
 
     def test_is_analysis_configured(self) -> None:
         assert Settings(opentip_api_key="key").is_analysis_configured() is True
@@ -64,6 +65,19 @@ class TestLoadSettings:
         cli_args.include_private_ips = True
         s = load_settings(cli_args)
         assert s.include_private_ips is True
+
+    def test_mock_enabled_via_env(self, clean_env, monkeypatch) -> None:
+        monkeypatch.setenv("LOGSCAN_MOCK", "true")
+        s = load_settings()
+        assert s.use_mock is True
+
+    def test_mock_disabled_by_default_env(self, clean_env) -> None:
+        assert load_settings().use_mock is False
+
+    def test_mock_enabled_via_cli(self, clean_env, cli_args) -> None:
+        cli_args.mock = True
+        s = load_settings(cli_args)
+        assert s.use_mock is True
 
     def test_no_env_uses_defaults(self, clean_env) -> None:
         s = load_settings()

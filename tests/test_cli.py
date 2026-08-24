@@ -50,6 +50,10 @@ class TestBuildParser:
         args = build_parser().parse_args(["--service"])
         assert args.service is True
 
+    def test_mock_flag(self) -> None:
+        args = build_parser().parse_args(["--mock"])
+        assert args.mock is True
+
 
 class TestRunCli:
     def test_missing_api_key_returns_error(self, clean_env, capsys, sample_log) -> None:
@@ -130,6 +134,16 @@ class TestMain:
         monkeypatch.setattr(logscan, "OpenTIPClient", FakeOpenTIPClient)
         rc = main(["--file", sample_log, "--include-private-ips"])
         assert rc == 0
+
+    def test_main_mock_mode_runs_without_api_key(
+        self, clean_env, capsys, sample_log, tmp_path
+    ) -> None:
+        rc = main(["--mock", "--file", sample_log, "--report-dir", str(tmp_path)])
+        assert rc == 0
+        report_files = list(tmp_path.glob("logscan_report_*.csv"))
+        assert len(report_files) == 1
+        captured = capsys.readouterr()
+        assert "mock" in captured.out.lower()
 
     def test_main_service_flag_delegates(self, clean_env, monkeypatch, capsys) -> None:
         monkeypatch.setenv("TELEGRAM_TOKEN", "tok")

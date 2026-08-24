@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib.config import load_settings
 from lib.log_parser import parse_file
+from lib.mock_server import DUMMY_API_KEY, MockOpenTIPServer
 from lib.opentip import OpenTIPClient
 from lib.report_generator import generate
 
@@ -64,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include private/reserved IP ranges in analysis.",
     )
     parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Run against an in-process mock OpenTIP server (no API key required).",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable debug logging.",
@@ -75,55 +81,71 @@ def run_cli(args: argparse.Namespace) -> int:
     """Run in CLI mode"""
     settings = load_settings(args)
 
-    if not settings.is_analysis_configured():
-        print(
-            "Error: analysis is not configured. Set OPENTIP_API_KEY or pass --api-key.",
-            file=sys.stderr,
-        )
-        return 2
+    mock_server: MockOpenTIPServer | None = None
+    if settings.use_mock:
+        # Run against an in-process mock so no real API key is required.
+        mock_server = MockOpenTIPServer().start()
+        settings.opentip_endpoint = mock_server.url
+        settings.opentip_api_key = DUMMY_API_KEY
+        print(f"Using in-process mock OpenTIP server at {mock_server.url}")
 
-    file_path = args.file
-    if not file_path:
-        file_path = input("Path to log file: ").strip()
-        if not file_path:
-            print("No file provided.", file=sys.stderr)
+    try:
+        if not settings.is_analysis_configured():
+            print(
+                "Error: analysis is not configured. Set OPENTIP_API_KEY or pass --api-key.",
+                file=sys.stderr,
+            )
             return 2
 
-    if not Path(file_path).is_file():
-        print(f"Error: file not found: {file_path}", file=sys.stderr)
-        return 2
+        file_path = args.file
+        if not file_path:
+            file_path = input("Path to log file: ").strip()
+            if not file_path:
+                print("No file provided.", file=sys.stderr)
+                return 2
 
-    print(f"Parsing {file_path} ...")
-    artefacts = parse_file(file_path, include_private_ips=settings.include_private_ips)
-    total = len(artefacts["ips"]) + len(artefacts["hashes"])
-    print(f"Found {len(artefacts['ips'])} IP(s), {len(artefacts['hashes'])} hash(es).")
+        if not Path(file_path).is_file():
+            print(f"Error: file not found: {file_path}", file=sys.stderr)
+            return 2
 
-    if total == 0:
-        print("No IP addresses or hashes found in the log.")
+        print(f"Parsing {file_path} ...")
+        artefacts = parse_file(
+            file_path, include_private_ips=settings.include_private_ips
+        )
+        total = len(artefacts["ips"]) + len(artefacts["hashes"])
+        print(
+            f"Found {len(artefacts['ips'])} IP(s), {len(artefacts['hashes'])} hash(es)."
+        )
+
+        if total == 0:
+            print("No IP addresses or hashes found in the log.")
+            return 0
+
+        client = OpenTIPClient(
+            api_key=settings.opentip_api_key,
+            endpoint=settings.opentip_endpoint,
+            backoff_interval=settings.opentip_backoff_interval,
+            max_retries=settings.opentip_max_retries,
+        )
+
+        print("Submitting artefacts to OpenTIP ...")
+        results = client.analyze(artefacts)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = str(
+            Path(settings.report_dir)
+            / f"logscan_report_{timestamp}.{settings.report_format}"
+        )
+        abs_path = generate(results, settings.report_format, output_path)
+
+        print(f"\nReport generated: {abs_path}\n")
+        for record in results:
+            print(f"  {record['artefact']:<70} {record['result']}")
+
         return 0
-
-    client = OpenTIPClient(
-        api_key=settings.opentip_api_key,
-        endpoint=settings.opentip_endpoint,
-        backoff_interval=settings.opentip_backoff_interval,
-        max_retries=settings.opentip_max_retries,
-    )
-
-    print("Submitting artefacts to OpenTIP ...")
-    results = client.analyze(artefacts)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = str(
-        Path(settings.report_dir)
-        / f"logscan_report_{timestamp}.{settings.report_format}"
-    )
-    abs_path = generate(results, settings.report_format, output_path)
-
-    print(f"\nReport generated: {abs_path}\n")
-    for record in results:
-        print(f"  {record['artefact']:<70} {record['result']}")
-
-    return 0
+    finally:
+        if mock_server is not None:
+            mock_server.stop()
 
 
 def run_service(args: argparse.Namespace) -> int:

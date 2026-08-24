@@ -49,6 +49,8 @@ class Settings:
     opentip_max_retries: int = 5
     # When True, private/reserved IP ranges are included in analysis.
     include_private_ips: bool = False
+    # When True, run against an in-process mock OpenTIP server (no API key).
+    use_mock: bool = False
 
     def is_analysis_configured(self) -> bool:
         """Return True when an OpenTIP API key is present."""
@@ -91,6 +93,7 @@ def load_settings(cli_args: Optional[Any] = None) -> Settings:
         opentip_backoff_interval=_as_int(env.get("OPENTIP_BACKOFF_INTERVAL"), 15),
         opentip_max_retries=_as_int(env.get("OPENTIP_MAX_RETRIES"), 5),
         include_private_ips=_as_bool(env.get("LOGSCAN_INCLUDE_PRIVATE_IPS", "false")),
+        use_mock=_as_bool(env.get("LOGSCAN_MOCK", "false")),
     )
 
     # Normalize report format.
@@ -106,6 +109,7 @@ def load_settings(cli_args: Optional[Any] = None) -> Settings:
         "report_format": getattr(cli_args, "format", None),
         "report_dir": getattr(cli_args, "report_dir", None),
         "include_private_ips": getattr(cli_args, "include_private_ips", None),
+        "use_mock": getattr(cli_args, "mock", None),
     }
     for attr, value in cli_overrides.items():
         if value not in (None, ""):
@@ -138,6 +142,7 @@ def settings_summary(settings: Settings) -> str:
         f"  backoff interval (s): {settings.opentip_backoff_interval}",
         f"  max retries        : {settings.opentip_max_retries}",
         f"  include private IPs: {settings.include_private_ips}",
+        f"  mock mode          : {settings.use_mock}",
         f"  analysis configured: {settings.is_analysis_configured()}",
         f"  bot configured     : {settings.is_bot_configured()}",
         f"  allowed chats      : {settings.telegram_allowed_chats or 'all'}",

@@ -27,7 +27,7 @@ logscan supports two execution modes:
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) >= 0.12.5
 
-## Quick Start using uv
+## Quick Start using uv and built-in mock server
 > tested on Debian 12/13
 
 ```bash
@@ -36,10 +36,7 @@ source $HOME/.local/bin/env
 git clone https://github.com/mstyushin/logscan.git
 cd logscan
 uv sync
-cp .env-example .env
-vim .env # paste your OpenTIP token
-source .env
-uv run logscan --file sample_logs/sample.log
+uv run logscan --mock --file sample_logs/sample.log --report-dir /tmp/reports
 cat /tmp/reports/*.csv
 ```
 
@@ -139,6 +136,16 @@ logscan --file /path/to/access.log --api-key "your-token" --format json --report
 
 ```bash
 logscan --file /path/to/log.txt --api-key "your-token" --include-private-ips
+```
+
+### Run without an API key (local mock server)
+
+For local development you can run against an in-process **mock OpenTIP server**
+so no API key is needed. Use the `--mock` flag (or set `LOGSCAN_MOCK=1`):
+
+```bash
+uv run logscan --mock --file sample_logs/sample.log --report-dir /tmp/reports
+cat /tmp/reports/*.csv
 ```
 
 ### Prompts for the file path when `--file` is omitted
