@@ -90,9 +90,7 @@ class LogscanBot:
         message = update.effective_message
 
         if not self.settings.is_analysis_configured():
-            await message.reply_text(
-                "Config error: OPENTIP_API_KEY is missing."
-            )
+            await message.reply_text("Config error: OPENTIP_API_KEY is missing.")
             return
 
         args = context.args
