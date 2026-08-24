@@ -79,7 +79,7 @@ class TestAuthorization:
         update = FakeUpdate(chat_id=999)
         context = FakeContext()
         bot._deny(update, context)
-        assert context.bot.sent[0]["text"] == "Access denied: chat is not allowed."
+        assert context.bot.sent[0]["text"] == "You must be in a whitelist to do this."
         assert context.bot.sent[0]["chat_id"] == 999
 
 
@@ -99,7 +99,7 @@ class TestStart:
         context = FakeContext()
         await bot._start(update, context)
         assert update.effective_message.replies == []
-        assert context.bot.sent[0]["text"].startswith("Access denied")
+        assert context.bot.sent[0]["text"].startswith("You must be in a whitelist")
 
 
 class TestStatus:
